@@ -25,9 +25,9 @@ action = function(host, port)
   local addr_family = #host.bin_ip == 4 and "IPv4" or "IPv6"
 
   post_json_object("Address", json.generate(json.make_object({
+    ip = host.ip,
     properties = {
       name = host.name,
-      ip = host.ip,
       family = addr_family,
       reverse_dns_hostname = host.name,
       target_name = host.targetname,
