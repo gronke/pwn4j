@@ -58,14 +58,13 @@ def neo4j_add_network(tx, ip, inetnum, properties):
 	)
 
 def neo4j_find_network(tx, ip):
-	transaction = tx.run(
+	results = tx.run(
 		"""
 		MATCH (n:Network)
 		RETURN n
 		""",
 		ip=ip
 	)
-	results = transaction.single()
 	
 	def _match_ip(result):
 		from_ip = socket.inet_aton(result["from_ip"])
@@ -88,61 +87,95 @@ def neo4j_relate_network_ip(tx, ip, inetnum):
 		ip=ip,
 		inetnum=inetnum
 	)
+
+
+def neo4j_find_unrelated_ips(tx):
+	"""
+	Find Addresses in database that are not related to a Network.
+	"""
+	result = tx.run(
+		"""
+		MATCH (a:Address)
+		WHERE NOT (a)-[:net]-(:Network)
+		RETURN a.ip
+		"""
+	)
+
+	if result is None:
+		return []
+
+	return [record[0] for record in result]
+
+def run(session, ip):
+
+	existing_network = session.write_transaction(
+		neo4j_find_network,
+		ip=ip
+	)
+
+	if existing_network is not None:
+		# Relate IP to existing Network
+		session.write_transaction(
+			neo4j_relate_network_ip,
+			ip=ip,
+			inetnum=existing_network["inetnum"]
+		)
+	else:
+		# Create new Network and relate IP
+		result = query(ip)
+		inetnum_attributes = next(filter(
+			lambda obj: obj["type"] == "inetnum",
+			result["objects"]["object"]
+		))["attributes"]["attribute"]
+
+		inetnum = next(filter(
+			lambda attribute: attribute["name"] == "inetnum",
+			inetnum_attributes
+		))["value"]
+		netname = next(filter(
+			lambda attribute: attribute["name"] == "netname",
+			inetnum_attributes
+		))["value"]
+		country = next(filter(
+			lambda attribute: attribute["name"] == "country",
+			inetnum_attributes
+		))["value"]
+		from_ip, to_ip = inetnum.replace(" ", "").split("-")
 	
+		session.write_transaction(
+			neo4j_add_network,
+			ip=ip,
+			inetnum=inetnum,
+			properties=dict(
+				netname=netname,
+				from_ip=from_ip,
+				to_ip=to_ip,
+				country=country
+			)
+		)
 
 if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser(
 		description='Query RIPE database.'
 	)
-	parser.add_argument("search", type=str)
+	group = parser.add_mutually_exclusive_group()
+	group.add_argument("search", type=str, nargs="?", default=None)
+	group.add_argument(
+		"--scan-existing",
+		default=False,
+		action=argparse.BooleanOptionalAction
+	)
 	args = parser.parse_args()
-	ip = args.search
 
 	with neo4j_driver.session() as session:
-
-		existing_network = session.write_transaction(
-			neo4j_find_network,
-			ip=ip
-		)
-
-		if existing_network is not None:
-			# Relate IP to existing Network
-			session.write_transaction(
-				neo4j_relate_network_ip,
-				ip=ip,
-				inetnum=existing_network["inetnum"]
-			)
-		else:
-			# Create new Network and relate IP
-			result = query(ip)
-			inetnum_attributes = next(filter(
-				lambda obj: obj["type"] == "inetnum",
-				result["objects"]["object"]
-			))["attributes"]["attribute"]
-
-			inetnum = next(filter(
-				lambda attribute: attribute["name"] == "inetnum",
-				inetnum_attributes
-			))["value"]
-			netname = next(filter(
-				lambda attribute: attribute["name"] == "netname",
-				inetnum_attributes
-			))["value"]
-			country = next(filter(
-				lambda attribute: attribute["name"] == "country",
-				inetnum_attributes
-			))["value"]
-			from_ip, to_ip = inetnum.replace(" ", "").split("-")
 		
-			session.write_transaction(
-				neo4j_add_network,
-				ip=ip,
-				inetnum=inetnum,
-				properties=dict(
-					netname=netname,
-					from_ip=from_ip,
-					to_ip=to_ip,
-					country=country
-				)
-			)
+		if args.scan_existing is True:
+			ips = session.write_transaction(neo4j_find_unrelated_ips)
+		elif args.search is not None:
+			ips = [args.search]
+		else:
+			raise Exception("Invalid input.")
+
+		for curr in ips:
+			run(session, curr)
