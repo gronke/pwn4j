@@ -32,7 +32,7 @@ def query(domain, expired=False):
 
 	if req.ok:
 		try:
-			content = req.content.decode('utf-8')
+			content = req.content.decode("utf-8")
 			data = json.loads(content)
 			return data
 		except Exception as err:
@@ -40,12 +40,14 @@ def query(domain, expired=False):
 
 	raise Exception("request failed")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-	parser = argparse.ArgumentParser(description='Lookup domains on crt.sh.')
-	parser.add_argument('domain', type=str, nargs=1)
-	parser.add_argument('--expired', default=False, action=argparse.BooleanOptionalAction)
-	parser.add_argument('--resolve', default=False, action=argparse.BooleanOptionalAction)
+	parser = argparse.ArgumentParser(
+		description="Lookup domains on crt.sh."
+	)
+	parser.add_argument("domain", type=str, nargs=1)
+	parser.add_argument("--expired", default=False, action=argparse.BooleanOptionalAction)
+	parser.add_argument("--resolve", default=False, action=argparse.BooleanOptionalAction)
 	args = parser.parse_args()
 
 	neo4j_driver = neo4j.GraphDatabase.driver(
