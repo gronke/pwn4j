@@ -1,13 +1,14 @@
-from flask import Flask, request
+import os
 import json
 import logging
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from flask import Flask, request
 import neo4j
 
 import helper
 
-neo4j_driver = neo4j.GraphDatabase.driver("bolt://172.16.53.130:7687",
-    auth=("neo4j", "fnord")
+neo4j_driver = neo4j.GraphDatabase.driver(
+    os.getenv("NEO4J_URL"),
+    auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASS"))
 )
 
 app = Flask(__name__)

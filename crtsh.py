@@ -49,8 +49,8 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	neo4j_driver = neo4j.GraphDatabase.driver(
-		"bolt://172.16.53.130:7687",
-		auth=("neo4j", "fnord")
+		os.getenv("NEO4J_URL"),
+		auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASS"))
 	)
 
 	results = query(
