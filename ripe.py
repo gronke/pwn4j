@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import socket
 import json
@@ -67,8 +68,8 @@ def neo4j_find_network(tx, ip):
 	)
 	
 	def _match_ip(result):
-		from_ip = socket.inet_aton(result["from_ip"])
-		to_ip = socket.inet_aton(result["to_ip"])
+		from_ip = socket.inet_aton(result[0]["from_ip"])
+		to_ip = socket.inet_aton(result[0]["to_ip"])
 		_ip = socket.inet_aton(ip)
 		return from_ip <= _ip <= to_ip
 
@@ -118,7 +119,7 @@ def run(session, ip):
 		session.write_transaction(
 			neo4j_relate_network_ip,
 			ip=ip,
-			inetnum=existing_network["inetnum"]
+			inetnum=existing_network[0]["inetnum"]
 		)
 	else:
 		# Create new Network and relate IP
